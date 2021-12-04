@@ -1,0 +1,69 @@
+$worker_count=3
+
+Vagrant.configure("2") do |config|
+	config.vm.define "master", primary: true do |master|
+		master.vm.box = "generic/rocky8"
+		master.vm.hostname = "master"
+		
+		master.vm.provider :virtualbox do |vb, override|
+			vb.cpu = "2"
+			vb.memory = "2048"
+			master.vm.network :private_network, ip: "172.16.0.100"
+		end
+		master.vm.provider :hyperv do |hv, override|
+			hv.cpus = "2"
+			hv.memory = "512"
+			hv.maxmemory = "2048"
+			hv.linked_clone = true
+		end
+
+		# init base environment
+		master.vm.provision :shell, privileged: true, path: "./scripts/00-base-env.sh"
+
+		# add ceph files to master
+		master.vm.provision :file, source: "./data/ceph-ansible.tar.gz", destination: "/tmp/ceph-ansible.tar.gz"
+		master.vm.provision :shell, privileged: true, inline: "cd /opt && tar xzf /tmp/ceph-ansible.tar.gz && chmod 755 -R /opt/ceph-ansible"
+		master.vm.provision :shell, privileged: true, path: "./scripts/10-ceph-ansible-env.sh"
+		master.vm.provision :shell, privileged: true, path: "./scripts/11-ceph-ansible-configure.sh", args: "'/opt/ceph-ansible'"
+		
+		# expose master pubkey for master-worker SSH interconnect
+		master.vm.provision :shell, privileged: true, inline: "ssh-keygen -f $HOME/.ssh/id_rsa -N \"\""
+		master.vm.provision :file, source: "./scripts/expose-my-pubkey-14514.py", destination: "/tmp/expose-my-pubkey-14514.py"
+		master.vm.provision :shell, privileged: true, inline: "python3 /tmp/expose-my-pubkey-14514.py &"
+		master.vm.provision :shell, privileged: true, inline: "curl http://master:14514 >> $HOME/.ssh/authorized_keys"
+
+		# disable firewall
+		master.vm.provision :shell, privileged: true, inline: "systemctl disable firewalld && systemctl stop firewalld"
+	end
+
+	(1..$worker_count).each do |i|
+		config.vm.define "worker%d" % i do |worker|
+			worker.vm.box = "generic/rocky8"
+			worker.vm.hostname = "worker%d" % i
+
+			worker.vm.provider :virtualbox do |vb, override|
+				vb.cpu = "2"
+				vb.memory = "2048"
+				worker.vm.network :private_network, ip: "172.16.0.101"
+			end
+			worker.vm.provider :hyperv do |hv, override|
+				hv.cpus = "2"
+				hv.memory = "512"
+				hv.maxmemory = "2048"
+				hv.linked_clone = true
+			end
+
+			# configure external disk for ceph OSD
+			worker.vm.disk :disk, size: "4GB", name: "osd-worker%d" % i
+
+			# init base environment
+			worker.vm.provision :shell, privileged: true, path: "./scripts/00-base-env.sh"
+
+			# direct access for master
+			worker.vm.provision :shell, privileged: true, inline: "mkdir -p ~/.ssh && curl http://master:14514 >> ~/.ssh/authorized_keys"
+		
+			# disable firewall
+			worker.vm.provision :shell, privileged: true, inline: "systemctl disable firewalld && systemctl stop firewalld"
+		end
+	end
+end

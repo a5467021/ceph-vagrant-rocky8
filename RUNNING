@@ -1,0 +1,12 @@
+Steps setting up the environment: 
+
+1. `vagrant up` (ensure envvar `VAGRANT_EXPERIMENTAL` includes "disks")
+2. `vagrant ssh` -- this will defaults ssh to the master vm
+3. (inside master) `sudo -i`
+4. (inside master) `cd /opt/ceph-ansible && ansible-playbook site.yml`
+5. (inside master) if stuck at "waiting for all osds to be up", ctrl-C to cancel 
+the deployment and ssh into each worker, run: `ceph-volume lvm create --data /dev/sdX`,
+where X is the unformatted, secondary disk
+6. (inside master) rerun 4 and everything should be fine
+7. after installation, edit hosts on master and avoid resolving to 127.0.1.1 for 
+Prometheus metric collection
