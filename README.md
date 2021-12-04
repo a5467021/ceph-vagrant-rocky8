@@ -1,5 +1,4 @@
 # ceph-vagrant-rocky8
----
 
 ## 简介
 
@@ -10,7 +9,8 @@
 系统：Microsoft Windows 11 Educational 21H2 (22000.348), amd64
 
 软件：
-Hyper-V：系统版本
+
+Hyper-V：系统版本  
 Vagrant：2.2.19
 
 ## 用途
