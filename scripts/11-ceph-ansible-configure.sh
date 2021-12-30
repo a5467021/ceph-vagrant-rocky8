@@ -50,4 +50,7 @@ sed -i -e 's/docker$/podman/g' $conf_docker
 # NOT accounting to the ceph cluster. In this condition, we can erase the superblock of the partition,
 # restart the server and create the OSD device again. In this way, the created OSDs should join the cluster correctly.
 
+# UPDATE 1
+# Refer to BUILDING to use `ceph-volume lvm zap` as a more recommemded way to reinitalize OSD disk. 
+
 # ceph-volume lvm create --data /dev/sdb
