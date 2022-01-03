@@ -31,8 +31,12 @@ Vagrant.configure("2") do |config|
 		master.vm.provision :file, source: "./scripts/expose-my-pubkey-14514.py", destination: "/tmp/expose-my-pubkey-14514.py"
 		master.vm.provision :shell, privileged: true, inline: "python3 /tmp/expose-my-pubkey-14514.py &"
 		master.vm.provision :shell, privileged: true, inline: "curl http://master:14514 >> $HOME/.ssh/authorized_keys"
+		
+		# disable GSSAPI authentication to speedup configuration, we do not need it
+		# GSSAPI authentication is hard-coded to be the first SSH authentication method and thus slows down the confuration process
+		master.vm.provision :shell, privileged: true, inline: "sed -i -e 's/^GSSAPIAuthentication yes$/GSSAPIAuthentication no/g' /etc/ssh/sshd_config && service sshd restart"
 
-		# disable firewall
+		# disable firewall -- required for pubkey exchange
 		master.vm.provision :shell, privileged: true, inline: "systemctl disable firewalld && systemctl stop firewalld"
 	end
 
@@ -61,6 +65,7 @@ Vagrant.configure("2") do |config|
 
 			# direct access for master
 			worker.vm.provision :shell, privileged: true, inline: "mkdir -p ~/.ssh && curl http://master:14514 >> ~/.ssh/authorized_keys"
+			worker.vm.provision :shell, privileged: true, inline: "sed -i -e 's/^GSSAPIAuthentication yes$/GSSAPIAuthentication no/g' /etc/ssh/sshd_config && service sshd restart"
 		
 			# disable firewall
 			worker.vm.provision :shell, privileged: true, inline: "systemctl disable firewalld && systemctl stop firewalld"
